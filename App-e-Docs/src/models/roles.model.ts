@@ -1,5 +1,5 @@
-import { Model, DataTypes, Optional } from "sequelize";
 import sequelize from "../config/db.config";
+import { Model, DataTypes, Optional, Sequelize } from "sequelize";
 
 export enum UserRole {
   Viewer = "viewer",
@@ -14,11 +14,11 @@ interface RoleAttributes {
   updatedAt: Date;
 }
 
-interface RoleCreationAtributes
+interface RoleCreationAttributes
   extends Optional<RoleAttributes, "id" | "createdAt" | "updatedAt"> {}
 
 class Roles
-  extends Model<RoleAttributes, RoleCreationAtributes>
+  extends Model<RoleAttributes, RoleCreationAttributes>
   implements RoleAttributes
 {
   public id!: number;
@@ -45,10 +45,13 @@ Roles.init(
     createdAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP") as any,
     },
     updatedAt: {
       type: DataTypes.DATE,
       allowNull: false,
+      defaultValue: Sequelize.literal("CURRENT_TIMESTAMP") as any,
+      onUpdate: Sequelize.literal("CURRENT_TIMESTAMP") as any,
     },
   },
   {
@@ -60,5 +63,11 @@ Roles.init(
     updatedAt: "updated_at",
   }
 );
+
+// Roles.hasMany(Users, {
+//   foreignKey: "roleId", // Kolom FK di tabel Users
+//   as: "users", // Alias untuk query: role.getUsers()
+//   onDelete: "RESTRICT", // Mengunci: Tidak bisa menghapus role jika masih ada user
+// });
 
 export default Roles;
