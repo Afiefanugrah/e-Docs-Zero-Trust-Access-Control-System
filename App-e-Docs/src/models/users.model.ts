@@ -35,7 +35,7 @@ class Users
 Users.init(
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       primaryKey: true,
       autoIncrement: true,
       allowNull: false,
@@ -50,7 +50,7 @@ Users.init(
       allowNull: false,
     },
     roleId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
     },
     isActive: {

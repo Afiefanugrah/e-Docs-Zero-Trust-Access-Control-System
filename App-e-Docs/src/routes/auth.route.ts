@@ -8,7 +8,7 @@ router.post("/login", AuthController.postLogin.bind(AuthController));
 
 router.post("/logout", AuthController.postLogout.bind(AuthController));
 
-router.delete(
+router.get(
   "/me",
   authenticateToken,
   AuthController.getMe.bind(AuthController)
