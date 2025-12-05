@@ -3,6 +3,7 @@
 import Users from "./users.model";
 import Roles from "./roles.model";
 import Document from "./documents.model";
+import AuditLog from "./auditLogs.model";
 
 export const setupAssociations = () => {
   // 1. Relasi One-to-Many (One Role has Many Users)
@@ -44,6 +45,22 @@ export const setupAssociations = () => {
   Users.hasMany(Document, {
     foreignKey: "updated_by",
     as: "updatedDocuments",
+  });
+
+  // ----------------------------------------------------
+  // III. Relasi AUDIT LOG dan User  // <-- PENAMBAHAN BARU
+  // ----------------------------------------------------
+
+  // 3. Relasi Many-to-One (Banyak AuditLog dimiliki oleh Satu User)
+  AuditLog.belongsTo(Users, {
+    foreignKey: "userId", // Sesuai dengan kolom di AuditLog.ts
+    as: "user",
+  });
+
+  // 4. Relasi One-to-Many (Satu User bisa memiliki banyak AuditLog)
+  Users.hasMany(AuditLog, {
+    foreignKey: "userId",
+    as: "auditLogs",
   });
 
   console.log("✅ Asosiasi Users dan Roles berhasil disiapkan.");

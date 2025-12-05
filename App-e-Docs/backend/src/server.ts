@@ -7,16 +7,20 @@ import sequelize from "./config/db.config";
 import roleModel from "./models/roles.model";
 import userModel from "./models/users.model";
 import documentModel from "./models/documents.model";
+import auditLogModel from "./models/auditLogs.model";
 import { setupAssociations } from "./models/associations.model";
 
 // ambil file di routes
 import usersEndpoint from "./routes/users.route";
 import authEndpoint from "./routes/auth.route";
 import documentEndpoint from "./routes/documents.route";
+import auditEnpoint from "./routes/audit.route";
 
 // Middleware
 const app = express();
 app.use(express.json());
+
+app.set("trust proxy", true);
 
 app.use(
   cors({
@@ -29,6 +33,7 @@ app.use(
 app.use("/api/users", usersEndpoint);
 app.use("/api/auth", authEndpoint);
 app.use("/api/document", documentEndpoint);
+app.use("/api/audit", auditEnpoint);
 
 async function initializeServer() {
   try {
@@ -40,6 +45,7 @@ async function initializeServer() {
     await roleModel.sync({ alter: true });
     await userModel.sync({ alter: true });
     await documentModel.sync({ alter: true });
+    await auditLogModel.sync({ alter: true });
     console.log("✅ Database disinkronkan. Tabel siap.");
 
     app.listen(PORT, () => {
