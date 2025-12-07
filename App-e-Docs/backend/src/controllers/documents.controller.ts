@@ -1,10 +1,7 @@
-// src/controllers/document.controller.ts
-
 import { Request, Response } from "express";
-// Import Documents dan DocumentStatus
 import Documents, { DocumentStatus } from "../models/documents.model";
 import { sendError, sendSuccess } from "../utils/response.utils";
-import { sha256 } from "js-sha256"; // Menggunakan library yang sudah diinstal
+import { sha256 } from "js-sha256";
 
 interface CreateDocumentBody {
   title: string;
@@ -16,19 +13,14 @@ interface UpdateDocumentBody {
   title?: string;
   description?: string;
   markdown_content?: string;
-  // Status dan Versi mungkin hanya diubah melalui controller yang berbeda (workflow)
-  // Untuk edit biasa, kita hanya ubah konten, title, dan description.
 }
 
 const generateSlug = (title: string): string => {
   return (
     title
       .toLowerCase()
-      // Ganti karakter non-alfanumerik dengan strip (kecuali spasi dan strip)
       .replace(/[^a-z0-9\s-]/g, "")
-      // Ganti spasi/strip berulang dengan strip tunggal
       .replace(/[\s-]+/g, "-")
-      // Hapus strip di awal dan akhir
       .replace(/^-+|-+$/g, "")
   );
 };

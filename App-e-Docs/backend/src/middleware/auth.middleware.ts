@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
 import { sendError } from "../utils/response.utils";
+import AuditLog from "../models/auditLogs.model";
+import { getIpAddress } from "../utils/ipHelper.utils";
 
-// Mapping role berdasarkan roleId
 const roleMap: Record<number, string> = {
   1: "viewer",
   2: "editor",
@@ -49,14 +50,13 @@ export const authenticateToken = (
       return sendError(res, "Autentikasi gagal.", 401);
     }
 
-
     const roleId = user.roleId;
     const roleName = roleMap[roleId];
 
     (req as any).user = {
       id: user.id,
       roleId: roleId,
-      roleName: roleName, // admin/editor/viewer
+      roleName: roleName,
     };
 
     return next();
@@ -64,10 +64,24 @@ export const authenticateToken = (
 };
 
 export const authorizeRole = (allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const userRole = req.user?.roleName;
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const actingUser = (req as any).user;
+    const ipAddress = getIpAddress(req);
+
+    const userRole = actingUser?.roleName;
+    const userId = actingUser?.id || null;
 
     if (!userRole) {
+      await AuditLog.create({
+        userId: userId,
+        actionType: "AUTHENTICATION_FAILED",
+        tableName: "Authorization",
+        ipAddress: ipAddress,
+        details: {
+          reason: "Informasi peran hilang dari token",
+          endpoint: req.originalUrl,
+        },
+      });
       return sendError(
         res,
         "Akses Ditolak: Informasi peran tidak ditemukan.",
@@ -82,6 +96,18 @@ export const authorizeRole = (allowedRoles: string[]) => {
     if (allowedRoles.includes(userRole)) {
       return next();
     }
+
+    await AuditLog.create({
+      userId: userId,
+      actionType: "ACCESS_DENIED",
+      tableName: "Authorization",
+      ipAddress: ipAddress,
+      details: {
+        attemptedEndpoint: req.originalUrl,
+        userRole: userRole,
+        requiredRoles: allowedRoles.join(", "),
+      },
+    });
 
     return sendError(
       res,

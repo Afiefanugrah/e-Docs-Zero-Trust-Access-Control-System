@@ -1,20 +1,30 @@
 import { Router } from "express";
 import UserController from "../controllers/users.controller";
-import { authenticateToken } from "../middleware/auth.middleware";
+import {
+  authenticateToken,
+  authorizeRole,
+} from "../middleware/auth.middleware";
 
 const router = Router();
 
 router.get(
-  "/",
+  "/all",
   authenticateToken,
+  authorizeRole(["admin"]),
   UserController.getAllUsers.bind(UserController)
 );
 
-router.post("/register", UserController.postRegisterUsers.bind(UserController));
+router.post(
+  "/register",
+  authenticateToken,
+  authorizeRole(["admin"]),
+  UserController.postRegisterUsers.bind(UserController)
+);
 
 router.delete(
   "/delete/:id",
   authenticateToken,
+  authorizeRole(["admin"]),
   UserController.deleteUsers.bind(UserController)
 );
 

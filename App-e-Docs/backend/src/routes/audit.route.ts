@@ -8,9 +8,9 @@ import {
 const router = Router();
 
 router.get(
-  "/",
-  authenticateToken, // Memastikan pengguna login
-  authorizeRole(["admin"]), // Memastikan peran adalah 'admin'
+  "/all",
+  authenticateToken,
+  authorizeRole(["admin"]),
   AuditController.getAllAuditLogs.bind(AuditController)
 );
 

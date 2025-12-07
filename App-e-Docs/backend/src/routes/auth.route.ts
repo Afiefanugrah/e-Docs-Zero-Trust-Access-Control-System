@@ -1,6 +1,6 @@
 import { Router } from "express";
 import AuthController from "../controllers/auth.controller";
-import { authenticateToken } from "../middleware/auth.middleware";
+import { authenticateToken, authorizeRole } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -11,6 +11,7 @@ router.post("/logout", AuthController.postLogout.bind(AuthController));
 router.get(
   "/me",
   authenticateToken,
+  authorizeRole(["all"]),
   AuthController.getMe.bind(AuthController)
 );
 

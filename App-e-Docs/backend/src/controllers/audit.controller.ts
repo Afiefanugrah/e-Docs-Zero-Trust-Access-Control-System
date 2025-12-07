@@ -1,27 +1,38 @@
 import { Request, Response } from "express";
-import AuditLog from "../models/auditLogs.model"; // Model log audit
-import Users from "../models/users.model"; // Model pengguna untuk JOIN
+import AuditLog from "../models/auditLogs.model";
+import Users from "../models/users.model";
 import { sendSuccess, sendError } from "../utils/response.utils";
+import { getIpAddress } from "../utils/ipHelper.utils";
 
 class AuditController {
-  /**
-   * Mengambil daftar semua log audit dari database.
-   * Hanya diizinkan untuk peran Admin.
-   */
   public async getAllAuditLogs(req: Request, res: Response): Promise<Response> {
     try {
       const auditLogs = await AuditLog.findAll({
-        // Melakukan JOIN dengan tabel Users untuk melihat siapa yang melakukan aksi
         include: [
           {
             model: Users,
-            as: "user", // Alias sesuai dengan asosiasi di associations.model.ts
-            attributes: ["id", "username", "roleId"], // Hanya ambil data user yang relevan
+            as: "user",
+            attributes: ["id", "username", "roleId"],
           },
         ],
-        attributes: { exclude: ["updatedAt"] }, // updated_at jarang relevan untuk log audit
-        order: [["createdAt", "DESC"]], // Urutkan berdasarkan waktu terbaru
-        limit: 100, // Batasi jumlah log yang diambil untuk performa
+        attributes: { exclude: ["updatedAt"] },
+        order: [["createdAt", "DESC"]],
+        limit: 100,
+      });
+
+      const actingUser = (req as any).user;
+      const ipAddress = getIpAddress(req);
+
+      await AuditLog.create({
+        userId: actingUser.id,
+        actionType: "VIEW_AUDIT_LOGS",
+        tableName: "AuditLogs",
+        recordId: null,
+        ipAddress: ipAddress,
+        details: {
+          endpoint: "/api/audit/all",
+          recordsViewed: auditLogs.length,
+        },
       });
 
       return sendSuccess(
