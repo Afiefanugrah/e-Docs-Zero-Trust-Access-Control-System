@@ -8,6 +8,7 @@ interface UserAttributes {
   password: string;
   roleId: number;
   isActive: Boolean;
+  failedAttemptCount: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -27,6 +28,7 @@ class Users
   public password!: string;
   public roleId!: number;
   public isActive!: Boolean;
+  public failedAttemptCount!: number;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -55,6 +57,11 @@ Users.init(
     },
     isActive: {
       type: DataTypes.BOOLEAN,
+      allowNull: false,
+    },
+    failedAttemptCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
       allowNull: false,
     },
   },

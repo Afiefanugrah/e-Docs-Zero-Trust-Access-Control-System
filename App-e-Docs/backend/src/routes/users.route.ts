@@ -21,6 +21,13 @@ router.post(
   UserController.postRegisterUsers.bind(UserController)
 );
 
+router.put(
+  "/toggle-active/:id",
+  authenticateToken,
+  authorizeRole(["admin"]),
+  UserController.toggleActiveStatus.bind(UserController)
+);
+
 router.delete(
   "/delete/:id",
   authenticateToken,

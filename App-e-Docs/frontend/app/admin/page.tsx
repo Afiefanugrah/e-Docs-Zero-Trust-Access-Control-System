@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Swal, { SweetAlertResult } from "sweetalert2";
 import {
   FiLogOut,
   FiUsers,
@@ -18,9 +19,12 @@ import {
   FiCheckCircle,
   FiEdit3,
   FiAlertTriangle,
-  FiBookOpen,
-  FiHardDrive,
+  FiToggleLeft,
+  FiToggleRight,
 } from "react-icons/fi";
+
+// Hapus MySwal = withReactContent(Swal);
+// Kita akan menggunakan Swal langsung
 
 const BASE_URL = "http://localhost:3200/api";
 const ADMIN_ROLE_NAME = "admin";
@@ -29,23 +33,31 @@ const ADMIN_ROLE_NAME = "admin";
 interface UserListItem {
   id: number;
   username: string;
-  roleName: string;
+  isActive: boolean;
+  role: {
+    name: string;
+  };
 }
 
 interface AuditLogItem {
   id: number;
-  actionType: string; // Contoh: "READ_ALL_DOCUMENTS", "USER_DELETED"
-  tableName: string; // Contoh: "Documents", "Users"
+  actionType: string;
+  tableName: string;
   userId: number;
   ipAddress: string;
   createdAt: string;
+  // KRITIS: Tambahkan struktur user untuk menampilkan username
+  user?: {
+    id: number;
+    username: string;
+  };
 }
 
 // --------------------------------------------------------------------------------
-// --- KOMPONEN HELPER ---
+// --- KOMPONEN HELPER & VIEWS ---
 // --------------------------------------------------------------------------------
 
-// --- Sidebar Item Component ---
+// --- Sidebar Item Component (Tetap Sama) ---
 interface SidebarItemProps {
   icon: React.ReactElement<{ className?: string }>;
   title: string;
@@ -78,11 +90,66 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
   </button>
 );
 
-// --- View: Manajemen Pengguna ---
+// --- Komponen Sidebar Admin ---
+interface AdminSidebarProps {
+  currentView: "users" | "audit";
+  setCurrentView: (view: "users" | "audit") => void;
+  handleLogout: () => void;
+  router: ReturnType<typeof useRouter>;
+}
+
+const AdminSidebar: React.FC<AdminSidebarProps> = ({
+  currentView,
+  setCurrentView,
+  handleLogout,
+  router,
+}) => (
+  <aside className="w-64 bg-gray-800 text-white flex flex-col p-4 shadow-xl h-screen shrink-0 sticky top-0">
+    <h1 className="text-2xl font-bold mb-8 text-red-400 flex items-center">
+      <FiSettings className="mr-2" /> Admin Panel
+    </h1>
+
+    <nav className="grow space-y-2">
+      <SidebarItem
+        icon={<FiUsers />}
+        title="Manajemen Pengguna"
+        isActive={currentView === "users"}
+        onClick={() => setCurrentView("users")}
+      />
+      <SidebarItem
+        icon={<FiActivity />}
+        title="Audit Log"
+        isActive={currentView === "audit"}
+        onClick={() => setCurrentView("audit")}
+      />
+
+      <div className="border-t border-gray-700 pt-4 mt-4">
+        <SidebarItem
+          icon={<FiList />}
+          title="Kembali ke Dokumen"
+          onClick={() => router.push("/")}
+          isLink
+        />
+      </div>
+    </nav>
+
+    <button
+      onClick={handleLogout}
+      className="flex items-center justify-center w-full py-2 mt-4 bg-red-700 rounded-lg hover:bg-red-800 transition"
+    >
+      <FiLogOut className="mr-2" />
+      Logout
+    </button>
+  </aside>
+);
+
+// --- View: Manajemen Pengguna (Tidak Berubah) ---
 interface UserManagementViewProps {
   users: UserListItem[];
   userCount: number;
   handleDeleteUser: (id: number) => void;
+  handleToggleActive: (id: number, isActive: boolean) => void;
+  adminId: number;
   router: ReturnType<typeof useRouter>;
 }
 
@@ -90,6 +157,8 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
   users,
   userCount,
   handleDeleteUser,
+  handleToggleActive,
+  adminId,
   router,
 }) => (
   <>
@@ -112,42 +181,90 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({
             <TableHead title="ID" />
             <TableHead title="Username" />
             <TableHead title="Role" />
+            <TableHead title="Status Aktif" />
             <TableHead title="Aksi" className="text-right" />
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {users.map((user) => (
-            <tr
-              key={user.id}
-              className="hover:bg-gray-50 transition duration-150"
-            >
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {user.id}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 flex items-center">
-                <FiUser className="mr-2" />
-                {user.username}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <StatusBadge status={user.roleName} isRole />
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button
-                  onClick={() => handleDeleteUser(user.id)}
-                  className="text-red-600 hover:text-red-800 flex items-center justify-end ml-auto"
-                >
-                  <FiTrash2 className="mr-1" /> Hapus
-                </button>
-              </td>
-            </tr>
-          ))}
+          {users.map((user) => {
+            const isSelf = user.id === adminId;
+            return (
+              <tr
+                key={user.id}
+                className="hover:bg-gray-50 transition duration-150"
+              >
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {user.id}{" "}
+                  {isSelf && (
+                    <span className="text-red-500 font-bold">(Anda)</span>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 flex items-center">
+                  <FiUser className="mr-2" />
+                  {user.username}
+                </td>
+
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <StatusBadge status={user.role.name} isRole />
+                </td>
+
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  {user.isActive ? (
+                    <span className="text-green-600 font-semibold flex items-center">
+                      <FiCheckCircle className="mr-1" /> Aktif
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 font-semibold flex items-center">
+                      <FiAlertTriangle className="mr-1" /> Dinonaktifkan
+                    </span>
+                  )}
+                </td>
+
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
+                  {!isSelf && (
+                    <button
+                      onClick={() => handleToggleActive(user.id, user.isActive)}
+                      className={`text-white py-1 px-3 rounded transition duration-150 
+                            ${
+                              user.isActive
+                                ? "bg-orange-500 hover:bg-orange-600"
+                                : "bg-blue-500 hover:bg-blue-600"
+                            }
+                        `}
+                      title={
+                        user.isActive
+                          ? "Nonaktifkan Akses Login"
+                          : "Aktifkan Akses Login"
+                      }
+                    >
+                      {user.isActive ? (
+                        <FiToggleRight className="inline-block w-5 h-5" />
+                      ) : (
+                        <FiToggleLeft className="inline-block w-5 h-5" />
+                      )}
+                    </button>
+                  )}
+
+                  {!isSelf && (
+                    <button
+                      onClick={() => handleDeleteUser(user.id)}
+                      className="text-red-600 hover:text-red-800 ml-3"
+                      title="Hapus Pengguna"
+                    >
+                      <FiTrash2 className="inline-block w-5 h-5" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   </>
 );
 
-// --- Fungsi untuk menentukan ikon dan warna Audit Log ---
+// --- Fungsi untuk menentukan ikon dan warna Audit Log (Tetap Sama) ---
 const getActionVisuals = (actionType: string) => {
   let icon = <FiCpu />;
   let color = "bg-gray-100 text-gray-700 border-gray-300";
@@ -170,7 +287,7 @@ const getActionVisuals = (actionType: string) => {
   return { icon, color };
 };
 
-// --- View: Audit Log (TAMPILAN CARD VIEW) ---
+// --- View: Audit Log (Diperbaiki untuk Username) ---
 interface AuditLogViewProps {
   logs: AuditLogItem[];
 }
@@ -185,6 +302,11 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => (
 
     {logs.map((log) => {
       const { icon, color } = getActionVisuals(log.actionType);
+
+      // Tentukan teks user: Username (ID)
+      const userText = log.user?.username
+        ? `${log.user.username} (${log.userId})`
+        : `ID: ${log.userId}`;
 
       return (
         <div
@@ -216,18 +338,18 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => (
               </p>
             </div>
 
-            {/* Kolom 3: User ID */}
+            {/* Kolom 3: User ID/Username (Diperbaiki) */}
             <div>
               <p className="font-semibold text-gray-700 flex items-center">
-                <FiUser className="mr-1 w-4 h-4 text-gray-500" />
-                User ID: {log.userId}
+                <FiUser className="mr-1 w-4 h-4" />
+                User: **{userText}**
               </p>
             </div>
 
             {/* Kolom 4: IP Address */}
             <div>
               <p className="font-semibold text-gray-700 flex items-center">
-                <FiCpu className="mr-1 w-4 h-4 text-gray-500" />
+                <FiCpu className="mr-1 w-4 h-4" />
                 IP: **{log.ipAddress || "N/A"}**
               </p>
             </div>
@@ -238,7 +360,7 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => (
   </div>
 );
 
-// --- KOMPONEN KEPALA TABEL KECIL ---
+// --- KOMPONEN KEPALA TABEL KECIL (Tetap Sama) ---
 const TableHead: React.FC<{ title: string; className?: string }> = ({
   title,
   className,
@@ -251,10 +373,9 @@ const TableHead: React.FC<{ title: string; className?: string }> = ({
   </th>
 );
 
-// --- KOMPONEN BADGE STATUS/ROLE KECIL ---
+// --- KOMPONEN BADGE STATUS/ROLE KECIL (Tetap Sama) ---
 const StatusBadge: React.FC<{ status: string; isRole?: boolean }> = ({
   status,
-  isRole = false,
 }) => {
   let colorClass = "bg-gray-200 text-gray-800";
   const safeStatus = status || "";
@@ -276,21 +397,49 @@ const StatusBadge: React.FC<{ status: string; isRole?: boolean }> = ({
   );
 };
 
+// --------------------------------------------------------------------------------
 // --- KOMPONEN UTAMA ADMIN DASHBOARD ---
+// --------------------------------------------------------------------------------
 const AdminDashboardPage: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(true);
   const [currentView, setCurrentView] = useState<"users" | "audit">("users");
   const [token, setToken] = useState<string | null>(null);
+  const [adminId, setAdminId] = useState<number>(0);
 
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [userCount, setUserCount] = useState<number>(0);
 
+  // --- Fungsi menampilkan SweetAlert2 (Toast) ---
+  const showSwalAlert = (
+    icon: "success" | "error" | "warning",
+    title: string,
+    text: string
+  ) => {
+    Swal.fire({
+      // Menggunakan Swal langsung
+      icon: icon,
+      title: title,
+      text: text,
+      toast: true,
+      position: "top-end",
+      showConfirmButton: false,
+      timer: 5000,
+      timerProgressBar: true,
+      // KRITIS: Menambahkan tipe HTMLElement
+      didOpen: (toast: HTMLElement) => {
+        toast.onmouseenter = Swal.stopTimer;
+        toast.onmouseleave = Swal.resumeTimer;
+      },
+    });
+  };
+
   // --- Proteksi dan Validasi Role (HANYA ADMIN) ---
   useEffect(() => {
     const authToken = localStorage.getItem("authToken");
     const userRole = localStorage.getItem("userRole");
+    const userId = localStorage.getItem("userId");
 
     if (!authToken) {
       router.push("/login");
@@ -298,16 +447,21 @@ const AdminDashboardPage: React.FC = () => {
     }
 
     if (userRole !== ADMIN_ROLE_NAME) {
-      alert(
-        `Akses Ditolak! Halaman ini hanya untuk peran ${ADMIN_ROLE_NAME.toUpperCase()}. Anda adalah ${
-          userRole ? userRole.toUpperCase() : "TAMU"
-        }.`
-      );
+      // Mengganti alert native
+      Swal.fire({
+        icon: "error",
+        title: "Akses Ditolak!",
+        text: `Halaman ini hanya untuk peran ${ADMIN_ROLE_NAME.toUpperCase()}.`,
+        showConfirmButton: false,
+        timer: 3000,
+      });
       router.push("/");
       return;
     }
 
+    // Set token dan ID Admin
     setToken(authToken);
+    setAdminId(userId ? parseInt(userId, 10) : 0);
     setLoading(false);
   }, [router]);
 
@@ -335,11 +489,11 @@ const AdminDashboardPage: React.FC = () => {
       setUserCount(data.data.length);
     } catch (error) {
       console.error("Error fetching users:", error);
-      alert("Gagal memuat daftar pengguna.");
+      showSwalAlert("error", "Gagal!", "Gagal memuat daftar pengguna.");
     }
   };
 
-  // --- Logika Fetch Audit Log (/api/audit/all) ---
+  // --- Logika Fetch Audit Log (Diperbaiki) ---
   const fetchAuditLogs = async (authToken: string) => {
     try {
       const response = await fetch(`${BASE_URL}/audit/all`, {
@@ -351,41 +505,144 @@ const AdminDashboardPage: React.FC = () => {
       setAuditLogs(data.data);
     } catch (error) {
       console.error("Error fetching audit logs:", error);
-      alert("Gagal memuat log audit.");
+      showSwalAlert("error", "Gagal!", "Gagal memuat log audit.");
     }
   };
 
   // --- Logika Hapus Pengguna (/api/users/delete/:id) ---
-  const handleDeleteUser = async (id: number) => {
-    if (
-      !confirm(
-        `Apakah Anda yakin ingin menghapus Pengguna ID: ${id}? Tindakan ini tidak dapat dibatalkan.`
-      )
-    )
+  const handleDeleteUser = (id: number) => {
+    if (id === adminId) {
+      showSwalAlert(
+        "warning",
+        "Aksi Ditolak",
+        "Anda tidak dapat menghapus akun Anda sendiri!"
+      );
       return;
-    if (!token) return;
-
-    try {
-      const response = await fetch(`${BASE_URL}/users/delete/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error("Gagal menghapus pengguna.");
-
-      setUsers(users.filter((user) => user.id !== id));
-      setUserCount((prev) => prev - 1);
-      alert(`Pengguna ID ${id} berhasil dihapus.`);
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      alert("Gagal menghapus pengguna. Cek log server.");
     }
+
+    Swal.fire({
+      // Menggunakan Swal langsung
+      title: "Konfirmasi Hapus?",
+      text: `Apakah Anda yakin ingin menghapus Pengguna ID: ${id}? Tindakan ini tidak dapat dibatalkan.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#dc3545",
+    }).then(async (result: SweetAlertResult) => {
+      if (result.isConfirmed) {
+        if (!token) return;
+
+        try {
+          const response = await fetch(`${BASE_URL}/users/delete/${id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({
+              message: "Gagal menghapus pengguna. Cek log server.",
+            }));
+            throw new Error(errorData.message);
+          }
+
+          setUsers(users.filter((user) => user.id !== id));
+          setUserCount((prev) => prev - 1);
+          showSwalAlert(
+            "success",
+            "Berhasil",
+            `Pengguna ID ${id} berhasil dihapus.`
+          );
+        } catch (error) {
+          console.error("Error deleting user:", error);
+          showSwalAlert(
+            "error",
+            "Gagal!",
+            (error as Error).message || "Gagal menghapus pengguna."
+          );
+        }
+      }
+    });
   };
 
-  // --- LOGIKA LOGOUT ---
+  // --- Logika TOGGLE STATUS AKTIF (Baru) ---
+  const handleToggleActive = (id: number, currentStatus: boolean) => {
+    if (id === adminId) {
+      showSwalAlert(
+        "warning",
+        "Aksi Ditolak",
+        "Anda tidak dapat menonaktifkan akun Anda sendiri!"
+      );
+      return;
+    }
+
+    const action = currentStatus ? "Nonaktifkan" : "Aktifkan";
+    const statusText = currentStatus ? "dinonaktifkan" : "diaktifkan";
+
+    Swal.fire({
+      // Menggunakan Swal langsung
+      title: "Konfirmasi Status?",
+      text: `Apakah Anda yakin ingin ${action.toLowerCase()} akses login Pengguna ID: ${id}?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: `Ya, ${action}`,
+      cancelButtonText: "Batal",
+      confirmButtonColor: currentStatus ? "#ffc107" : "#007bff",
+    }).then(async (result: SweetAlertResult) => {
+      if (result.isConfirmed) {
+        if (!token) return;
+
+        try {
+          // ASUMSI: Endpoint backend: PUT /api/users/toggle-active/:id
+          const response = await fetch(
+            `${BASE_URL}/users/toggle-active/${id}`,
+            {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ isActive: !currentStatus }), // Mengirim status yang diinginkan
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({
+              message: `Gagal ${action.toLowerCase()} pengguna.`,
+            }));
+            throw new Error(errorData.message);
+          }
+
+          // Perbarui state secara lokal
+          setUsers(
+            users.map((user) =>
+              user.id === id ? { ...user, isActive: !currentStatus } : user
+            )
+          );
+
+          showSwalAlert(
+            "success",
+            "Berhasil",
+            `Pengguna ID ${id} berhasil di${statusText}.`
+          );
+        } catch (error) {
+          console.error("Error toggling user status:", error);
+          showSwalAlert(
+            "error",
+            "Gagal!",
+            (error as Error).message ||
+              `Gagal ${action.toLowerCase()} pengguna.`
+          );
+        }
+      }
+    });
+  };
+
+  // --- LOGIKA LOGOUT (Tetap Sama) ---
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("userId");
     router.push("/login");
   };
 
@@ -404,43 +661,13 @@ const AdminDashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      {/* --- SIDEBAR --- */}
-      <aside className="w-64 bg-gray-800 text-white flex flex-col p-4 shadow-xl">
-        <h1 className="text-2xl font-bold mb-8 text-red-400 flex items-center">
-          <FiSettings className="mr-2" /> Admin Panel
-        </h1>
-
-        <nav className="grow space-y-2">
-          <SidebarItem
-            icon={<FiUsers />}
-            title="Manajemen Pengguna"
-            isActive={currentView === "users"}
-            onClick={() => setCurrentView("users")}
-          />
-          <SidebarItem
-            icon={<FiActivity />}
-            title="Audit Log"
-            isActive={currentView === "audit"}
-            onClick={() => setCurrentView("audit")}
-          />
-          <div className="border-t border-gray-700 pt-4 mt-4">
-            <SidebarItem
-              icon={<FiList />}
-              title="Kembali ke Dokumen"
-              onClick={() => router.push("/")}
-              isLink
-            />
-          </div>
-        </nav>
-
-        <button
-          onClick={handleLogout}
-          className="flex items-center justify-center w-full py-2 mt-4 bg-red-700 rounded-lg hover:bg-red-800 transition"
-        >
-          <FiLogOut className="mr-2" />
-          Logout
-        </button>
-      </aside>
+      {/* --- SIDEBAR COMPONENT --- */}
+      <AdminSidebar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        handleLogout={handleLogout}
+        router={router}
+      />
 
       {/* --- KONTEN UTAMA --- */}
       <main className="grow p-8">
@@ -455,6 +682,8 @@ const AdminDashboardPage: React.FC = () => {
             users={users}
             userCount={userCount}
             handleDeleteUser={handleDeleteUser}
+            handleToggleActive={handleToggleActive}
+            adminId={adminId}
             router={router}
           />
         )}

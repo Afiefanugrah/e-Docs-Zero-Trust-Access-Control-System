@@ -7,11 +7,17 @@ import { sendSuccess, sendError } from "../utils/response.utils";
 import { validateUsername, validatePassword } from "../utils/validators.utils";
 import { getIpAddress } from "../utils/ipHelper.utils";
 
+const MAX_FAILED_ATTEMPTS = 3;
+
 interface createUserBody {
   username: string;
   password: string;
   roleId: number;
   isActive?: boolean;
+}
+
+interface ToggleActiveBody {
+  isActive: boolean; // Status yang ingin ditetapkan
 }
 
 class UserController {
@@ -159,6 +165,83 @@ class UserController {
       return sendSuccess(res, responseData, "Pengguna berhasil dibuat.", 201);
     } catch (error) {
       return sendError(res, "Gagal membuat pengguna", 500, error);
+    }
+  }
+
+  public async toggleActiveStatus(
+    req: Request,
+    res: Response
+  ): Promise<Response> {
+    const actingUser = (req as any).user;
+    const ipAddress = getIpAddress(req);
+    const targetId = parseInt(req.params.id, 10);
+    const { isActive } = req.body as ToggleActiveBody;
+
+    if (isNaN(targetId)) {
+      return sendError(res, "ID pengguna tidak valid.", 400);
+    }
+
+    // 1. Cek Pencegahan: Admin tidak boleh menonaktifkan dirinya sendiri
+    if (actingUser.id === targetId) {
+      await AuditLog.create({
+        userId: actingUser.id,
+        actionType: "USER_TOGGLE_FAILED",
+        tableName: "Users",
+        recordId: targetId,
+        ipAddress: ipAddress,
+        details: {
+          reason: "Mencoba menonaktifkan diri sendiri",
+          targetId: targetId,
+          statusAttempt: isActive,
+        },
+      });
+      return sendError(
+        res,
+        "Anda tidak dapat menonaktifkan akun Admin Anda sendiri.",
+        403
+      );
+    }
+
+    try {
+      const user = await Users.findByPk(targetId);
+
+      if (!user) {
+        return sendError(res, "Pengguna tidak ditemukan.", 404);
+      }
+
+      // 2. Lakukan Update Status
+      const oldStatus = user.isActive;
+      const newStatus = isActive;
+
+      await user.update({ isActive: newStatus });
+
+      const action = newStatus ? "USER_ACTIVATED" : "USER_DEACTIVATED";
+
+      // 3. Catat Log Audit
+      await AuditLog.create({
+        userId: actingUser.id,
+        actionType: action,
+        tableName: "Users",
+        recordId: user.id,
+        ipAddress: ipAddress,
+        details: {
+          targetUsername: user.username,
+          oldStatus: oldStatus,
+          newStatus: newStatus,
+        },
+      });
+
+      return sendSuccess(
+        res,
+        { id: user.id, isActive: newStatus },
+        `Status pengguna ${user.username} berhasil diubah menjadi ${
+          newStatus ? "Aktif" : "Nonaktif"
+        }.`,
+        200
+      );
+    } catch (error) {
+      console.error("Error saat toggle active status:", error);
+      return sendError(res, "Gagal mengubah status pengguna.", 500, error);
     }
   }
 
