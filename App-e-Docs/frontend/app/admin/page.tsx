@@ -25,7 +25,7 @@ import {
 
 // Kita akan menggunakan Swal langsung
 
-const BASE_URL = "http://localhost:3200/api";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 const ADMIN_ROLE_NAME = "admin";
 
 // --- DEFINISI TIPE ---

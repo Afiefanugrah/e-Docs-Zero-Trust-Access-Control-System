@@ -15,7 +15,7 @@ import {
   FiCheckCircle,
 } from "react-icons/fi";
 
-const BASE_URL = "http://localhost:3200/api";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 const ADMIN_ROLE_NAME = "admin";
 const ROLES = [
   { id: 3, name: "Admin" },
@@ -133,7 +133,7 @@ const CreateUserPage: React.FC = () => {
       const dataToSend = {
         username: formData.username,
         password: formData.password,
-        roleId: formData.roleId, 
+        roleId: formData.roleId,
         isActive: formData.isActive,
       };
 
@@ -152,17 +152,19 @@ const CreateUserPage: React.FC = () => {
         Swal.fire({
           icon: "success",
           title: "Berhasil!",
-          text: `Pengguna ${result.data.username} berhasil dibuat sebagai ${ROLES.find(r => r.id === result.data.roleId)?.name || 'User'}.`,
+          text: `Pengguna ${result.data.username} berhasil dibuat sebagai ${
+            ROLES.find((r) => r.id === result.data.roleId)?.name || "User"
+          }.`,
           showConfirmButton: false,
           timer: 2500,
         });
 
         // Reset form dan alihkan kembali ke manajemen pengguna
         setFormData({
-            username: "",
-            password: "",
-            roleId: "1",
-            isActive: true,
+          username: "",
+          password: "",
+          roleId: "1",
+          isActive: true,
         });
         router.push("/admin?view=users"); // Redirect ke Admin Panel
       } else {
@@ -271,7 +273,11 @@ const CreateUserPage: React.FC = () => {
             <Label htmlFor="isActive" className="mb-0 cursor-pointer">
               Aktifkan Akun Sekarang
             </Label>
-            <FiCheckCircle className={`w-5 h-5 ${formData.isActive ? 'text-green-500' : 'text-gray-400'}`} />
+            <FiCheckCircle
+              className={`w-5 h-5 ${
+                formData.isActive ? "text-green-500" : "text-gray-400"
+              }`}
+            />
           </div>
 
           {/* Tombol Submit */}

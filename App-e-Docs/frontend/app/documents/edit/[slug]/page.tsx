@@ -19,7 +19,7 @@ import {
 } from "react-icons/fi";
 
 // URL API dan Role yang Sesuai
-const BASE_URL = "http://localhost:3200/api";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 const EDITOR_ROLES = ["admin", "editor"];
 
 // --- DEFINISI TIPE ---

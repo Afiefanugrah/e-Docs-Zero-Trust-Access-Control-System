@@ -39,7 +39,7 @@ interface UserData {
 }
 
 // URL API yang Sesuai dengan Backend Anda
-const BASE_URL = "http://localhost:3200/api";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 // --- DEFINISI PERAN YANG DIIZINKAN (RBAC) ---
 const EDITOR_ROLES = ["admin", "editor"];

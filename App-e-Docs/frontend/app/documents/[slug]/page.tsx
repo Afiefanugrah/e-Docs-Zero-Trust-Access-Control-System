@@ -18,7 +18,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw"; // Opsional: Untuk mengizinkan HTML di dalam markdown
 
 // URL API yang Sesuai dengan Backend Anda
-const BASE_URL = "http://localhost:3200/api";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 // --- DEFINISI TIPE (Tetap Sama) ---
 interface DocumentDetail {

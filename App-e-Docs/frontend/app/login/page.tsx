@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiUser, FiLock, FiLogIn, FiLoader, FiBookOpen } from "react-icons/fi";
 
-const BASE_URL = "http://localhost:3200/api";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 const LoginPage: React.FC = () => {
   const router = useRouter();
