@@ -43,7 +43,7 @@ AuditLog.init(
     },
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "users",
         key: "id",

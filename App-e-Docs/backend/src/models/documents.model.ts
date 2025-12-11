@@ -105,7 +105,7 @@ Document.init(
     },
     created_by: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "users",
         key: "id",
@@ -113,7 +113,7 @@ Document.init(
     },
     updated_by: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "users",
         key: "id",

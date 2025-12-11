@@ -324,8 +324,9 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => (
               <p className="font-bold text-gray-800 flex items-center">
                 {log.actionType}
               </p>
-              <p className="text-xs text-gray-600">
-                Pada Tabel: **{log.tableName || "-"}**
+              <p className="text-xs text-gray-600 font-semibold">
+                Pada Tabel:{" "}
+                <span className="font-normal">{log.tableName || "-"}</span>
               </p>
             </div>
 
@@ -341,15 +342,16 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ logs }) => (
             <div>
               <p className="font-semibold text-gray-700 flex items-center">
                 <FiUser className="mr-1 w-4 h-4" />
-                User: **{userText}**
+                User: <span className="font-bold ml-1">{userText}</span>
               </p>
             </div>
 
-            {/* Kolom 4: IP Address */}
+            {/* Kolom 4: IP Address (Diperbaiki) */}
             <div>
               <p className="font-semibold text-gray-700 flex items-center">
                 <FiCpu className="mr-1 w-4 h-4" />
-                IP: **{log.ipAddress || "N/A"}**
+                IP:{" "}
+                <span className="font-bold ml-1">{log.ipAddress || "N/A"}</span>
               </p>
             </div>
           </div>

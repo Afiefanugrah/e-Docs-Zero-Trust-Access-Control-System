@@ -3,17 +3,18 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Swal from "sweetalert2"; // <--- BARIS KRITIS: Import SweetAlert2
 import {
   FiLogOut,
   FiFileText,
   FiList,
   FiSearch,
   FiLoader,
-  FiCalendar,
   FiUser,
   FiPlusCircle,
   FiEdit,
   FiSettings,
+  FiTrash2,
 } from "react-icons/fi";
 
 // --- DEFINISI TIPE ---
@@ -21,10 +22,7 @@ interface Document {
   id: number;
   title: string;
   slug: string;
-  // HILANGKAN description SEMENTARA: Karena backend TIDAK mengirimkannya di /document/all
-  // description: string;
   status: string;
-  // KRITIS: Version harus string ("1.0"), bukan number
   version: string;
   Creator: {
     username: string;
@@ -44,13 +42,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 // --- DEFINISI PERAN YANG DIIZINKAN (RBAC) ---
 const EDITOR_ROLES = ["admin", "editor"];
 
-// --- FUNGSI HELPER: Memotong Teks (Tetap dipertahankan, tapi tidak dipakai di table) ---
-const truncateText = (text: string, maxLength: number = 50) => {
-  if (!text) return "-";
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
-};
-
 const GlobalDocumentsPage: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(true);
@@ -64,55 +55,7 @@ const GlobalDocumentsPage: React.FC = () => {
 
   const isAdmin = userData && userData.roleName === "admin";
 
-  // --- 1. AMBIL DATA USER DAN PROTEKSI ROUTE (Tetap Sama) ---
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-
-    if (!token) {
-      router.push("/login");
-      return;
-    }
-
-    const fetchUserData = async () => {
-      try {
-        const response = await fetch(`${BASE_URL}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        // SANGAT KRITIS: Ini adalah baris yang memicu "Sesi tidak valid."
-        if (!response.ok) {
-          // Tambahkan logika debug atau pastikan token valid
-          const errorData = await response
-            .json()
-            .catch(() => ({ message: "Gagal parse error response" }));
-          console.error("Auth Fetch Failed:", response.status, errorData);
-          throw new Error("Sesi tidak valid. Harap login ulang.");
-        }
-
-        const data = await response.json();
-        const fetchedUser = data.data;
-
-        if (!fetchedUser || !fetchedUser.roleName) {
-          throw new Error("Data user atau role tidak ditemukan.");
-        }
-
-        setUserData(fetchedUser);
-        localStorage.setItem("userRole", fetchedUser.roleName);
-        fetchDocuments(token);
-      } catch (error) {
-        console.error("Error validasi sesi:", error);
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userRole");
-        router.push("/login");
-      }
-    };
-
-    fetchUserData();
-  }, [router]);
-
-  // --- 2. AMBIL DAFTAR DOKUMEN (Tetap Sama) ---
+  // --- FUNGSI AMBIL DAFTAR DOKUMEN ---
   const fetchDocuments = async (token: string) => {
     try {
       const response = await fetch(`${BASE_URL}/document/all`, {
@@ -129,11 +72,148 @@ const GlobalDocumentsPage: React.FC = () => {
       setDocuments(data.data);
     } catch (error) {
       console.error("Error fetching documents:", error);
-      alert("Gagal memuat daftar dokumen dari server.");
+      // Menggunakan SweetAlert2 untuk error umum
+      Swal.fire({
+        icon: "error",
+        title: "Gagal Memuat",
+        text: "Gagal memuat daftar dokumen dari server.",
+        showConfirmButton: false,
+        timer: 3000,
+      });
+    }
+  };
+
+  // --- 1. AMBIL DATA USER DAN PROTEKSI ROUTE ---
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Sesi tidak valid. Harap login ulang.");
+        }
+
+        const data = await response.json();
+        const fetchedUser = data.data;
+
+        setUserData(fetchedUser);
+        localStorage.setItem("userRole", fetchedUser.roleName);
+
+        await fetchDocuments(token);
+      } catch (error) {
+        console.error("Error validasi sesi:", error);
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userRole");
+        // Menggunakan SweetAlert2 untuk error sesi
+        Swal.fire({
+          icon: "warning",
+          title: "Sesi Kedaluwarsa",
+          text: "Sesi Anda telah berakhir. Harap login ulang.",
+          confirmButtonText: "OK",
+        }).then(() => {
+          router.push("/login");
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [router]);
+
+  // --- 2. FUNGSI BARU: DELETE DOKUMEN (Menggunakan SweetAlert2) ---
+  const handleDelete = async (slug: string, title: string) => {
+    if (!isAdmin) {
+      Swal.fire({
+        icon: "warning",
+        title: "Akses Ditolak",
+        text: "Anda tidak memiliki izin untuk menghapus dokumen.",
+        showConfirmButton: false,
+        timer: 2500,
+      });
+      return;
+    }
+
+    // Konfirmasi Penghapusan dengan SweetAlert2
+    const result = await Swal.fire({
+      title: "Konfirmasi Hapus",
+      text: `Apakah Anda yakin ingin menghapus dokumen "${title}"? Aksi ini tidak dapat dibatalkan.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Ya, Hapus!",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${BASE_URL}/document/slug/${slug}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const responseData = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMessage =
+          responseData.message ||
+          "Gagal menghapus dokumen karena masalah server/otorisasi.";
+
+        Swal.fire({
+          icon: "error",
+          title: "Gagal Hapus",
+          text: errorMessage,
+        });
+        console.error("Delete Failed:", response.status, responseData);
+      } else {
+        // SweetAlert2 untuk Sukses
+        Swal.fire({
+          icon: "success",
+          title: "Berhasil!",
+          text: `Dokumen "${title}" berhasil dihapus.`,
+          showConfirmButton: false,
+          timer: 2000,
+        });
+        // Refresh daftar dokumen
+        await fetchDocuments(token);
+      }
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Kesalahan Jaringan",
+        text: "Terjadi kesalahan jaringan saat menghapus dokumen.",
+      });
     } finally {
       setLoading(false);
     }
   };
+  // ------------------------------------
 
   // --- LOGIKA LOGOUT (Tetap Sama) ---
   const handleLogout = () => {
@@ -148,10 +228,9 @@ const GlobalDocumentsPage: React.FC = () => {
       doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.Creator.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       doc.status.toLowerCase().includes(searchTerm.toLowerCase())
-    // Menghapus filter berdasarkan description
   );
 
-  // --- TAMPILAN LOADING SEMENTARA (Tetap Sama) ---
+  // --- TAMPILAN LOADING SEMENTARA ---
   if (loading || !userData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -165,10 +244,9 @@ const GlobalDocumentsPage: React.FC = () => {
     );
   }
 
-  // --- TAMPILAN DOKUMEN GLOBAL UTAMA ---
+  // --- TAMPILAN DOKUMEN GLOBAL UTAMA (Struktur tetap sama) ---
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* --- HEADER/NAVIGASI ATAS (Tetap Sama) --- */}
       <header className="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center">
           <h1 className="text-2xl font-bold text-blue-600">
@@ -210,13 +288,12 @@ const GlobalDocumentsPage: React.FC = () => {
         </div>
       </header>
 
-      {/* --- KONTEN UTAMA DOKUMEN --- */}
       <main className="grow p-4 md:p-8">
         <h2 className="text-3xl font-extrabold text-gray-800 mb-6 flex items-center">
           <FiList className="mr-3 text-blue-600" /> Daftar Dokumen yang Dapat
           Diakses
         </h2>
-        {/* Kontrol dan Pencarian + Tombol CREATE (Tetap Sama) */}
+
         <div className="flex justify-between items-center mb-6 p-4 bg-white rounded-xl shadow-md">
           <div className="relative w-full max-w-md">
             <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -245,8 +322,6 @@ const GlobalDocumentsPage: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <TableHead title="Judul Dokumen" />
-                {/* Deskripsi Dihapus sementara backend tidak mengirimkannya */}
-                {/* <TableHead title="Deskripsi Singkat" /> */}
                 <TableHead title="Status" />
                 <TableHead title="Pembuat" />
                 <TableHead title="Versi" />
@@ -264,11 +339,6 @@ const GlobalDocumentsPage: React.FC = () => {
                     {doc.title}
                   </td>
 
-                  {/* Deskripsi Dihapus sementara backend tidak mengirimkannya */}
-                  {/* <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">
-                    {truncateText(doc.description)}
-                  </td> */}
-
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <StatusBadge status={doc.status} />
                   </td>
@@ -282,6 +352,7 @@ const GlobalDocumentsPage: React.FC = () => {
                     {new Date(doc.updatedAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-y-1">
+                    {/* Tombol Lihat Detail */}
                     <button
                       onClick={() =>
                         router.push(
@@ -293,6 +364,7 @@ const GlobalDocumentsPage: React.FC = () => {
                       <FiFileText className="mr-1" /> Lihat Detail
                     </button>
 
+                    {/* Tombol Edit */}
                     {canCreateOrEdit && (
                       <button
                         onClick={() =>
@@ -305,12 +377,22 @@ const GlobalDocumentsPage: React.FC = () => {
                         <FiEdit className="mr-1" /> Edit
                       </button>
                     )}
+
+                    {/* --- Tombol DELETE (HANYA ADMIN) --- */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(doc.slug, doc.title)}
+                        className="text-red-600 hover:text-red-800 flex items-center justify-end w-full mt-1"
+                      >
+                        <FiTrash2 className="mr-1" /> Hapus
+                      </button>
+                    )}
+                    {/* ------------------------------------- */}
                   </td>
                 </tr>
               ))}
               {filteredDocuments.length === 0 && (
                 <tr>
-                  {/* KRITIS: Kembalikan colSpan ke 6 karena 1 kolom dihapus */}
                   <td
                     colSpan={6}
                     className="px-6 py-8 text-center text-gray-500"

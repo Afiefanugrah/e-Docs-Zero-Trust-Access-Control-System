@@ -49,4 +49,11 @@ router.put(
   documentsController.updateDocumentBySlug.bind(documentsController)
 );
 
+router.delete(
+  "/slug/:slug",
+  authenticateToken,
+  authorizeRole(["admin"]), // <-- HANYA ADMIN BISA HAPUS
+  documentsController.deleteDocumentBySlug.bind(documentsController)
+);
+
 export default router;

@@ -566,6 +566,72 @@ class DocumentsController {
       return sendError(res, "Gagal memperbarui dokumen.", 500, error);
     }
   }
+
+  // Tambahkan kode ini di dalam class DocumentsController
+
+  public async deleteDocumentBySlug(
+    req: Request,
+    res: Response
+  ): Promise<Response> {
+    const actingUser = (req as any).user;
+    const ipAddress = getIpAddress(req);
+    const userId = actingUser.id;
+    const slugToDelete = req.params.slug;
+
+    if (!slugToDelete) {
+      return sendError(res, "Slug dokumen tidak diberikan.", 400);
+    }
+
+    try {
+      // 1. Ambil Dokumen yang Ada
+      const document = await Documents.findOne({
+        where: { slug: slugToDelete },
+      });
+
+      if (!document) {
+        await AuditLog.create({
+          userId: userId,
+          actionType: "DELETE_DOCUMENT_FAILED",
+          tableName: "Documents",
+          recordId: null,
+          ipAddress: ipAddress,
+          details: {
+            reason: "Dokumen target tidak ditemukan (404)",
+            slug: slugToDelete,
+            userRole: actingUser.roleName,
+          },
+        });
+        return sendError(res, "Dokumen tidak ditemukan.", 404);
+      }
+
+      const documentTitle = document.title;
+      await document.destroy(); // Menghapus record
+
+      await AuditLog.create({
+        userId: userId,
+        actionType: "DOCUMENT_DELETED",
+        tableName: "Documents",
+        recordId: document.id,
+        ipAddress: ipAddress,
+        details: {
+          deletedTitle: documentTitle,
+          deletedSlug: slugToDelete,
+          userRole: actingUser.roleName,
+          deletedStatus: document.status,
+        },
+      });
+
+      // 4. Siapkan Response
+      return sendSuccess(
+        res,
+        null,
+        `Dokumen "${documentTitle}" berhasil dihapus.`,
+        200
+      );
+    } catch (error) {
+      return sendError(res, "Gagal menghapus dokumen.", 500, error);
+    }
+  }
 }
 
 export default new DocumentsController();

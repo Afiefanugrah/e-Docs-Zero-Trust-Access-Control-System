@@ -27,12 +27,14 @@ export const setupAssociations = () => {
   Document.belongsTo(Users, {
     foreignKey: "created_by",
     as: "Creator",
+    onDelete: "SET NULL",
   });
 
   // Dokumen diupdate oleh satu User
   Document.belongsTo(Users, {
     foreignKey: "updated_by",
     as: "Updater",
+    onDelete: "SET NULL",
   });
 
   // Opsional: Satu User bisa membuat banyak Dokumen
@@ -55,6 +57,7 @@ export const setupAssociations = () => {
   AuditLog.belongsTo(Users, {
     foreignKey: "userId", // Sesuai dengan kolom di AuditLog.ts
     as: "user",
+    onDelete: "SET NULL",
   });
 
   // 4. Relasi One-to-Many (Satu User bisa memiliki banyak AuditLog)
